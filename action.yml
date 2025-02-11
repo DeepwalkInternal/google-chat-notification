@@ -1,0 +1,40 @@
+name: "Google Chat Notification"
+description: "Send deployment notifications to Google Chat"
+branding:
+  icon: "message-square"
+  color: "blue"
+
+inputs:
+  webhook_url:
+    description: "Google Chat webhook URL"
+    required: true
+  status:
+    description: "Status of the workflow - use `${{ job.status }}`"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Send notification
+      shell: bash
+      run: |
+        if [ "${{ inputs.status }}" = "success" ]; then
+          ICON="✅"
+          STATUS="successful"
+        elif [ "${{ inputs.status }}" = "failure" ]; then
+          ICON="❌"
+          STATUS="failed"
+        else
+          ICON="🟨"
+          STATUS="canceled"
+        fi
+
+        MESSAGE="${ICON} ${{ github.repository }} ${{ github.workflow }} deployment ${STATUS}!
+
+        ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        Trigger: ${{ github.actor }}
+        Commit: ${{ github.event.head_commit.message }}"
+
+        curl -X POST -H 'Content-Type: application/json' \
+        '${{ inputs.webhook_url }}' \
+        -d "{\"text\": \"${MESSAGE}\"}"
