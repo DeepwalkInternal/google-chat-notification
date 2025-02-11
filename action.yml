@@ -9,7 +9,7 @@ inputs:
     description: "Google Chat webhook URL"
     required: true
   status:
-    description: "Status of the workflow - use `${{ job.status }}`"
+    description: "Status of the workflow - use 'job.status'"
     required: true
 
 runs:
