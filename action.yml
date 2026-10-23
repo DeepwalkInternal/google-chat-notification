@@ -17,11 +17,21 @@ runs:
   steps:
     - name: Send notification
       shell: bash
+      # Pass every expression through env, never inline in the script:
+      # commit messages can contain backticks and $(...) that bash would run.
+      env:
+        WEBHOOK_URL: ${{ inputs.webhook_url }}
+        JOB_STATUS: ${{ inputs.status }}
+        REPOSITORY: ${{ github.repository }}
+        WORKFLOW: ${{ github.workflow }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        ACTOR: ${{ github.actor }}
+        COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
       run: |
-        if [ "${{ inputs.status }}" = "success" ]; then
+        if [ "$JOB_STATUS" = "success" ]; then
           ICON="✅"
           STATUS="successful"
-        elif [ "${{ inputs.status }}" = "failure" ]; then
+        elif [ "$JOB_STATUS" = "failure" ]; then
           ICON="❌"
           STATUS="failed"
         else
@@ -29,12 +39,12 @@ runs:
           STATUS="canceled"
         fi
 
-        MESSAGE="${ICON} ${{ github.repository }} ${{ github.workflow }} deployment ${STATUS}!
+        MESSAGE="${ICON} ${REPOSITORY} ${WORKFLOW} deployment ${STATUS}!
 
-        ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        Trigger: ${{ github.actor }}
-        Commit: ${{ github.event.head_commit.message }}"
+        ${RUN_URL}
+        Trigger: ${ACTOR}
+        Commit: ${COMMIT_MESSAGE}"
 
-        curl -X POST -H 'Content-Type: application/json' \
-        '${{ inputs.webhook_url }}' \
-        -d "{\"text\": \"${MESSAGE}\"}"
+        jq -n --arg text "$MESSAGE" '{text: $text}' \
+        | curl -sS -X POST -H 'Content-Type: application/json' \
+          --data-binary @- "$WEBHOOK_URL"
